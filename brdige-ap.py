@@ -10,7 +10,7 @@ e_vals = []
 
 bridge = False
 
-# Your volume rate per mm of filament extruded for bridging! (= E value per mm, standard = 0.0331724073)
+# Your volume rate per mm of filament extruded for bridging! (= E value per mm, my is standard = 0.0331724073)
 bridge_extrusion_mm = 0.05307585168
 
 # flowrate percentage drop when near a wall
@@ -19,6 +19,9 @@ flow_rate_percentage = 0.8
 # mm from the wall to start modifying the flowrate
 wall_distance_threshold = 10.0
 
+# feed rate in mm/min for bridging moves
+feed_rate_bridge_middle = 600
+feed_rate_bridge_start_end = 480
 
 with open(input_file, "r") as f:
     lines = f.readlines()
@@ -108,12 +111,12 @@ for i in range(1, len(df)):
         p3_x = curr_x 
         p3_e = wall_distance_threshold * bridge_extrusion_mm * flow_rate_percentage
 
-        new_gcode.append(f"G1 X{p1_x:.3f} Y{curr_y:.3f} E{p1_e:.5f}")
-        new_gcode.append(f"G1 X{p2_x:.3f} Y{curr_y:.3f} E{p2_e:.5f}")
-        new_gcode.append(f"G1 X{p3_x:.3f} Y{curr_y:.3f} E{p3_e:.5f}")
+        new_gcode.append(f"G1 X{p1_x:.3f} Y{curr_y:.3f} E{p1_e:.5f} F{feed_rate_bridge_start_end}")
+        new_gcode.append(f"G1 X{p2_x:.3f} Y{curr_y:.3f} E{p2_e:.5f} F{feed_rate_bridge_middle}")
+        new_gcode.append(f"G1 X{p3_x:.3f} Y{curr_y:.3f} E{p3_e:.5f} F{feed_rate_bridge_start_end}")
 
     else:
-        new_gcode.append(f"G1 X{curr_x:.3f} Y{curr_y:.3f} E{curr_e:.5f}")
+        new_gcode.append(f"G1 X{curr_x:.3f} Y{curr_y:.3f} E{curr_e:.5f} F{feed_rate_bridge_middle}")
 
 
 for line in new_gcode:
