@@ -2,6 +2,7 @@ import re
 import pandas as pd
 import numpy as np
 
+# Input G-code file, this has only been tested with 1 object with 1 bridge, copy paste the output back into the gcode to replace the original bridge section.
 input_file = "basicbridge-walledv6_PLA_7m52s.gcode"
 
 x_vals = []
@@ -10,16 +11,18 @@ e_vals = []
 
 bridge = False
 
-# Your volume rate per mm of filament extruded for bridging! (= E value per mm, my is standard = 0.0331724073)
-bridge_extrusion_mm = 0.05307585168
+# Your flow rate per mm of filament extruded (= E value per mm, mine is standard (non-bridging) = 0.0331724073)
+# Calculate it from gcode file movement, if point x1 = 100 and point x2 = 300 and E=6.6346037 then (6.6346037 / (300-100)) = 0.0331724073
+standard_extrusion_mm = 0.0331724073
+bridge_extrusion_mm = standard_extrusion_mm * 1.5 # is the bridge flow ratio like in orcaslicer.
 
-# flowrate percentage drop when near a wall
-flow_rate_percentage = 0.8
+# Flowrate percentage drop when near a wall.
+flow_rate_percentage = 0.7
 
-# mm from the wall to start modifying the flowrate
+# mm from the wall to start modifying the flowrate.
 wall_distance_threshold = 10.0
 
-# feed rate in mm/min for bridging moves
+# Feed rate in mm/min for bridging moves.
 feed_rate_bridge_middle = 600
 feed_rate_bridge_start_end = 480
 
@@ -49,7 +52,7 @@ while i < len(lines):
         e_vals.append(e)
         
 
-    # Collect X, Y, E values during bridging
+    # Collect X, Y, E values during bridging.
     if line.startswith("G1 X") and bridge == True:
         # Extract X or Y if present
         x_match = re.search(r"X([0-9.+-]+)", line)
@@ -60,24 +63,24 @@ while i < len(lines):
         y = float(y_match.group(1)) if y_match else None
         e = float(e_match.group(1)) if e_match else None
 
-        # Only append if all are present
+        # Only append if all are present.
         if x is not None and y is not None and e is not None:
             x_vals.append(x)
             y_vals.append(y)
             e_vals.append(e)
 
 
-    # Detect end of bridge, use ";WIPE_START" or "G1 E-", check your own gcode file
+    # Detect end of bridge, use ";WIPE_START" or "G1 E-", check your own gcode file.
     if line.startswith("G1 E-") and bridge == True:
             bridge = False
 
 
     i += 1
 
-# Make DataFrame
+# Make DataFrame.
 df = pd.DataFrame({"X": x_vals, "Y": y_vals, "E": e_vals})
 
-# Calculate segment lengths
+# Calculate segment lengths.
 df['segment_length'] = np.hypot(df['X'].diff(), df['Y'].diff())
 
 
@@ -86,7 +89,7 @@ df['segment_length'] = np.hypot(df['X'].diff(), df['Y'].diff())
 
 
 
-# Create new G-code text for the bridge with modified extrusion
+# Create new G-code text for the bridge with modified extrusion.
 new_gcode = []
 
 for i in range(1, len(df)):
@@ -99,7 +102,7 @@ for i in range(1, len(df)):
 
     curr_e = df.at[i, "E"]
 
-    # vector unit components (direction of movement +1 or -1)
+    # Vector unit components (direction of movement ux is either +1 or -1)
     ux = (curr_x - prev_x) / segment_length
 
     
@@ -119,5 +122,12 @@ for i in range(1, len(df)):
         new_gcode.append(f"G1 X{curr_x:.3f} Y{curr_y:.3f} E{curr_e:.5f} F{feed_rate_bridge_middle}")
 
 
+print("; Modified Bridge G-code:")
+print(f"; Bridge ratio: {(bridge_extrusion_mm / standard_extrusion_mm):.2f}x")
+print(f"; Distance from wall: {wall_distance_threshold}mm")
+print(f"; Feed rate start and end part: {feed_rate_bridge_start_end} mm/min")
+print(f"; Feed rate middle part: {feed_rate_bridge_middle} mm/min")
 for line in new_gcode:
     print(line)
+
+print("; End of Modified Bridge G-code")
