@@ -2,7 +2,8 @@ import re
 import pandas as pd
 import numpy as np
 
-# Input G-code file, this has only been tested with 1 object with 1 bridge, copy paste the output back into the gcode to replace the original bridge section.
+# Input G-code file, this has only been tested with 1 object with 1 bridge and the bridge is going in X direction.
+# Copy paste the output back into the gcode to replace the original bridge section.
 input_file = "basicbridge-walledv6_PLA_7m52s.gcode"
 
 x_vals = []
@@ -11,10 +12,13 @@ e_vals = []
 
 bridge = False
 
-# Your flow rate per mm of filament extruded (= E value per mm, mine is standard (non-bridging) = 0.0331724073)
-# Calculate it from gcode file movement, if point x1 = 100 and point x2 = 300 and E=6.6346037 then (6.6346037 / (300-100)) = 0.0331724073
-standard_extrusion_mm = 0.0331724073
-bridge_extrusion_mm = standard_extrusion_mm * 1.5 # is the bridge flow ratio like in orcaslicer.
+# Your flow rate per mm of filament extruded NON-BRIDGING (= E value per mm, mine is standard (non-bridging) = 0.03317240)
+# Calculate it from gcode movement, if point x1 = 100 and point x2 = 300 and E=6.63448 then (6.63448 / (300-100)) = 0.03317240 see blow example lines:
+# G1 X100.0 Y100.841 E1.25556 
+# G1 X300.0 Y100.841 E6.63448
+standard_extrusion_mm = 0.03317240
+orca_slicer_bridge_ratio = 1.5 # Adjust this value based on your slicer's bridging settings.
+bridge_extrusion_mm =  standard_extrusion_mm * orca_slicer_bridge_ratio 
 
 # Flowrate percentage drop when near a wall.
 flow_rate_percentage = 0.7
@@ -46,6 +50,9 @@ while i < len(lines):
         x = float(x_match.group(1)) if x_match else None
         y = float(y_match.group(1)) if y_match else None
         e = float(e_match.group(1)) if e_match else None
+
+        if x is None or y is None: # check if start_line look back is correct
+            raise ValueError("Could not find starting X, Y values for the start of the bridge, check start_line variable declaration in the python code.")
 
         x_vals.append(x)
         y_vals.append(y)
@@ -84,8 +91,7 @@ df = pd.DataFrame({"X": x_vals, "Y": y_vals, "E": e_vals})
 df['segment_length'] = np.hypot(df['X'].diff(), df['Y'].diff())
 
 
-#print(df.tail(20))
-
+#print(df.head(20))
 
 
 
@@ -123,10 +129,14 @@ for i in range(1, len(df)):
 
 
 print("; Modified Bridge G-code:")
-print(f"; Bridge ratio: {(bridge_extrusion_mm / standard_extrusion_mm):.2f}x")
+print(f"; Orca Slicer Bridge Extrusion Ratio: {orca_slicer_bridge_ratio}x")
+print(f"; Standard extrusion rate per mm: {standard_extrusion_mm}")
+print(f"; Bridge extrusion rate per mm: {bridge_extrusion_mm}")
+print(f"; Flow rate near wall: {flow_rate_percentage}x or {bridge_extrusion_mm * flow_rate_percentage} per mm")
 print(f"; Distance from wall: {wall_distance_threshold}mm")
 print(f"; Feed rate start and end part: {feed_rate_bridge_start_end} mm/min")
 print(f"; Feed rate middle part: {feed_rate_bridge_middle} mm/min")
+
 for line in new_gcode:
     print(line)
 
