@@ -17,18 +17,19 @@ bridge = False
 # G1 X100.0 Y100.841 E1.25556 
 # G1 X300.0 Y100.841 E6.63448
 standard_extrusion_mm = 0.03317240
-orca_slicer_bridge_ratio = 1.5 # Adjust this value based on your slicer's bridging settings.
+orca_slicer_bridge_ratio = 1.8 # Adjust this value based on your slicer's bridging settings.
 bridge_extrusion_mm =  standard_extrusion_mm * orca_slicer_bridge_ratio 
 
-# Flowrate percentage drop when near a wall.
-flow_rate_percentage = 0.7
+# Flowrate near a wall.
+near_wall_extrusion_ratio = 1.6  
+near_wall_extrusion_mm = standard_extrusion_mm * near_wall_extrusion_ratio
 
 # mm from the wall to start modifying the flowrate.
 wall_distance_threshold = 10.0
 
 # Feed rate in mm/min for bridging moves.
 feed_rate_bridge_middle = 600
-feed_rate_bridge_start_end = 480
+feed_rate_bridge_near_wall = 480
 
 with open(input_file, "r") as f:
     lines = f.readlines()
@@ -114,28 +115,27 @@ for i in range(1, len(df)):
     
     if (segment_length > (wall_distance_threshold * 2)):
         p1_x = prev_x + (wall_distance_threshold * ux)
-        p1_e = wall_distance_threshold * bridge_extrusion_mm * flow_rate_percentage
+        p1_e = wall_distance_threshold * bridge_extrusion_mm * near_wall_extrusion_mm
         p2_x = curr_x - (wall_distance_threshold * ux)
         p2_e = (p2_x - p1_x) * bridge_extrusion_mm * ux
         p3_x = curr_x 
-        p3_e = wall_distance_threshold * bridge_extrusion_mm * flow_rate_percentage
+        p3_e = wall_distance_threshold * bridge_extrusion_mm * near_wall_extrusion_mm
 
-        new_gcode.append(f"G1 X{p1_x:.3f} Y{curr_y:.3f} E{p1_e:.5f} F{feed_rate_bridge_start_end}")
+        new_gcode.append(f"G1 X{p1_x:.3f} Y{curr_y:.3f} E{p1_e:.5f} F{feed_rate_bridge_near_wall}")
         new_gcode.append(f"G1 X{p2_x:.3f} Y{curr_y:.3f} E{p2_e:.5f} F{feed_rate_bridge_middle}")
-        new_gcode.append(f"G1 X{p3_x:.3f} Y{curr_y:.3f} E{p3_e:.5f} F{feed_rate_bridge_start_end}")
+        new_gcode.append(f"G1 X{p3_x:.3f} Y{curr_y:.3f} E{p3_e:.5f} F{feed_rate_bridge_near_wall}")
 
     else:
         new_gcode.append(f"G1 X{curr_x:.3f} Y{curr_y:.3f} E{curr_e:.5f} F{feed_rate_bridge_middle}")
 
 
 print("; Modified Bridge G-code:")
-print(f"; Orca Slicer Bridge Extrusion Ratio: {orca_slicer_bridge_ratio}x")
 print(f"; Standard extrusion rate per mm: {standard_extrusion_mm}")
-print(f"; Bridge extrusion rate per mm: {bridge_extrusion_mm}")
-print(f"; Flow rate near wall: {flow_rate_percentage}x or {bridge_extrusion_mm * flow_rate_percentage} per mm")
+print(f"; Bridge extrusion rate per mm: {bridge_extrusion_mm} ({orca_slicer_bridge_ratio}x)")
+print(f"; Extrusion rate near wall per mm: {near_wall_extrusion_mm} ({near_wall_extrusion_ratio}x)")
 print(f"; Distance from wall: {wall_distance_threshold}mm")
-print(f"; Feed rate start and end part: {feed_rate_bridge_start_end} mm/min")
-print(f"; Feed rate middle part: {feed_rate_bridge_middle} mm/min")
+print(f"; Feed rate bridge near wall: {feed_rate_bridge_near_wall} mm/min")
+print(f"; Feed rate bridge middle: {feed_rate_bridge_middle} mm/min")
 
 for line in new_gcode:
     print(line)
